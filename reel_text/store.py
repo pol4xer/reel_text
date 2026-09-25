@@ -13,6 +13,10 @@ class QueueFull(Exception):
     pass
 
 
+class JobPending(Exception):
+    pass
+
+
 class Store:
     def __init__(self, path: Path):
         self.path = path
@@ -75,6 +79,27 @@ class Store:
         with self.connection() as db:
             row = db.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone()
             return dict(row) if row else None
+
+    def delete(self, job_id: str) -> bool:
+        with self.connection() as db:
+            # Hold a write lock between the state check and deletion so an active
+            # worker cannot change the status between these two operations.
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute("SELECT status FROM jobs WHERE id=?", (job_id,)).fetchone()
+            if row is None:
+                return False
+            if row["status"] in PENDING:
+                raise JobPending("Wait for this item to finish before deleting it.")
+            db.execute("DELETE FROM jobs WHERE id=?", (job_id,))
+            return True
+
+    def delete_transcripts(self) -> int:
+        with self.connection() as db:
+            return db.execute("DELETE FROM jobs WHERE status='done'").rowcount
+
+    def completed_count(self) -> int:
+        with self.connection() as db:
+            return db.execute("SELECT count(*) FROM jobs WHERE status='done'").fetchone()[0]
 
     def list(self, limit: int = 200) -> list[dict]:
         with self.connection() as db:

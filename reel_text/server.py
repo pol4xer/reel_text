@@ -15,7 +15,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from reel_text.config import Settings
 from reel_text.pipeline import ProcessingError, download_audio, normalize_urls, transcribe_audio
-from reel_text.store import QueueFull, Store
+from reel_text.store import JobPending, QueueFull, Store
 
 logger = logging.getLogger(__name__)
 Language = Literal["auto", "en", "ru", "uk", "tr", "es", "de", "fr"]
@@ -112,7 +112,21 @@ def create_app(project_dir: Path | None = None) -> FastAPI:
 
     @app.get("/api/jobs")
     def list_jobs():
-        return {"jobs": store.list()}
+        return {"jobs": store.list(), "completed_count": store.completed_count()}
+
+    @app.delete("/api/jobs/{job_id}")
+    def delete_job(job_id: str):
+        try:
+            deleted = store.delete(job_id)
+        except JobPending as exc:
+            raise HTTPException(409, str(exc)) from exc
+        if not deleted:
+            raise HTTPException(404, "Item not found.")
+        return {"deleted": 1}
+
+    @app.delete("/api/transcripts")
+    def delete_transcripts():
+        return {"deleted": store.delete_transcripts()}
 
     @app.post("/api/jobs", status_code=202)
     def add_jobs(body: JobRequest):

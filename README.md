@@ -34,6 +34,7 @@ If the port is already in use:
 2. Paste links to individual Instagram Reels or video posts, one per line. Submit up to 50 links at a time; duplicates within the submission are removed.
 3. Choose **Video language** or leave **Detect automatically** selected, then click **Get transcripts**.
 4. Copy individual results or download them as `.txt`. **Download all .txt** includes successful transcripts among the latest 200 items.
+5. Click **Delete** on a completed, failed, or interrupted item to remove it from your local history. **Clean All Transcripts** removes all completed transcripts, including older ones outside the current list, while keeping queued, processing, failed, and interrupted items. Download anything you want to keep before deleting it.
 
 Profile and collection URLs are not supported. If a video is private, deleted, inaccessible, or has no recognizable speech, that item shows an error and the remaining links continue processing.
 

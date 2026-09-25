@@ -128,3 +128,92 @@ def test_static_page_and_missing_export(app):
         assert "Turn videos into words" in client.get("/").text
         assert client.get("/static/app.js").status_code == 200
         assert client.get("/api/export").status_code == 404
+
+
+def test_delete_completed_job_persists_and_removes_export(app, tmp_path):
+    with TestClient(app) as client:
+        store = app.state.store
+        deleted, retained = store.create(
+            ["https://instagram.com/reel/deleted/", "https://instagram.com/reel/retained/"], "auto"
+        )
+        store.update(deleted["id"], "done", transcript="Transcript to delete.")
+        store.update(retained["id"], "done", transcript="Transcript to retain.")
+        response = client.delete(f"/api/jobs/{deleted['id']}")
+        assert response.status_code == 200
+        assert response.json() == {"deleted": 1}
+        assert client.get(f"/api/jobs/{deleted['id']}/text").status_code == 404
+        assert [job["id"] for job in client.get("/api/jobs").json()["jobs"]] == [retained["id"]]
+        exported = client.get("/api/export").text
+        assert "Transcript to delete." not in exported
+        assert "Transcript to retain." in exported
+    with TestClient(server.create_app(tmp_path)) as restarted:
+        assert restarted.get(f"/api/jobs/{deleted['id']}/text").status_code == 404
+        assert restarted.get("/api/jobs").json()["jobs"][0]["id"] == retained["id"]
+
+
+@pytest.mark.parametrize("status", ["error", "interrupted"])
+def test_delete_failed_or_interrupted_job(app, status):
+    with TestClient(app) as client:
+        store = app.state.store
+        job = store.create(["https://instagram.com/reel/failed/"], "auto")[0]
+        store.update(job["id"], status, error="Processing did not complete.")
+        response = client.delete(f"/api/jobs/{job['id']}")
+        assert response.status_code == 200
+        assert response.json() == {"deleted": 1}
+        assert store.get(job["id"]) is None
+
+
+def test_delete_missing_job_returns_not_found(app):
+    with TestClient(app) as client:
+        assert client.delete("/api/jobs/does-not-exist").status_code == 404
+
+
+@pytest.mark.parametrize("status", ["queued", "downloading", "transcribing"])
+def test_delete_pending_job_returns_conflict_and_preserves_item(app, status):
+    with TestClient(app) as client:
+        store = app.state.store
+        job = store.create(["https://instagram.com/reel/pending/"], "auto")[0]
+        store.update(job["id"], status)
+        response = client.delete(f"/api/jobs/{job['id']}")
+        assert response.status_code == 409
+        assert store.get(job["id"])["status"] == status
+
+
+def test_delete_all_transcripts_includes_hidden_rows_and_preserves_other_statuses(app):
+    with TestClient(app) as client:
+        store = app.state.store
+        completed_ids = []
+        for index in range(205):
+            job = store.create([f"https://instagram.com/reel/completed{index}/"], "auto")[0]
+            store.update(job["id"], "done", transcript=f"Transcript {index}.")
+            completed_ids.append(job["id"])
+        preserved = {}
+        for status in ("queued", "downloading", "transcribing", "error", "interrupted"):
+            job = store.create([f"https://instagram.com/reel/{status}/"], "auto")[0]
+            store.update(job["id"], status)
+            preserved[job["id"]] = status
+        listing = client.get("/api/jobs").json()
+        assert len(listing["jobs"]) == 200
+        assert listing["completed_count"] == 205
+        response = client.delete("/api/transcripts")
+        assert response.status_code == 200
+        assert response.json() == {"deleted": 205}
+        assert all(store.get(job_id) is None for job_id in completed_ids)
+        listing = client.get("/api/jobs").json()
+        assert {job["id"]: job["status"] for job in listing["jobs"]} == preserved
+        assert listing["completed_count"] == 0
+        assert client.get("/api/export").status_code == 404
+        assert client.delete("/api/transcripts").json() == {"deleted": 0}
+
+
+@pytest.mark.parametrize("endpoint", ["/api/jobs/{job_id}", "/api/transcripts"])
+def test_cross_origin_delete_is_rejected(app, endpoint):
+    with TestClient(app) as client:
+        store = app.state.store
+        job = store.create(["https://instagram.com/reel/completed/"], "auto")[0]
+        store.update(job["id"], "done", transcript="Keep this transcript.")
+        response = client.delete(
+            endpoint.format(job_id=job["id"]), headers={"Origin": "https://unrelated.example"}
+        )
+        assert response.status_code == 403
+        assert store.get(job["id"])["transcript"] == "Keep this transcript."
