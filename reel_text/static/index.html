@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>reel_text · Instagram to text</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%232956df'/%3E%3Ctext x='12' y='45' fill='white' font-size='40' font-family='monospace'%3Er%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="reel_text — home"><span class="brand-mark">r</span>reel_text<span class="brand-cursor">_</span></a>
+    <span class="local-label">Local application</span>
+  </header>
+  <main>
+    <section class="intro"><p class="eyebrow">INSTAGRAM → TEXT</p><h1>Turn videos into words.</h1><p>Paste Instagram Reel or post links and get their transcripts.</p></section>
+    <div class="workspace">
+      <aside class="input-column">
+        <section class="panel input-panel">
+          <form id="links-form">
+            <label class="field-label" for="urls">Instagram links</label>
+            <textarea id="urls" name="urls" rows="8" placeholder="https://www.instagram.com/reel/…/&#10;https://www.instagram.com/p/…/" required spellcheck="false" aria-describedby="urls-help"></textarea>
+            <p id="urls-help" class="hint">One link per line, up to 50 at a time. Use individual video links, not profiles.</p>
+            <label class="field-label" for="language">Video language</label>
+            <select id="language" name="language"><option value="auto">Detect automatically</option><option value="ru">Russian</option><option value="en">English</option><option value="uk">Ukrainian</option><option value="tr">Turkish</option><option value="es">Spanish</option><option value="de">German</option><option value="fr">French</option></select>
+            <div id="form-error" class="notice error" role="alert" hidden></div>
+            <button class="primary" id="submit" type="submit" disabled>Get transcripts <span aria-hidden="true">↗</span></button>
+          </form>
+          <p class="privacy-note">Audio is processed by Deepgram. Transcripts are stored on this computer.</p>
+        </section>
+        <details id="settings" class="panel settings-panel">
+          <summary>Deepgram settings <span id="key-state">Checking…</span></summary>
+          <form id="key-form">
+            <label class="field-label" for="api-key">API key</label>
+            <input id="api-key" type="password" autocomplete="off" placeholder="Paste your Deepgram API key" required>
+            <p class="hint">Your key is stored locally in the project’s .env file.</p>
+            <div id="key-message" class="notice" role="status" hidden></div>
+            <button id="save-key" class="secondary" type="submit">Save key</button>
+          </form>
+        </details>
+        <p id="requirements" class="notice error" role="alert" hidden></p>
+      </aside>
+      <section class="results-column" aria-labelledby="results-title">
+        <div class="results-heading"><div><h2 id="results-title">Transcripts <span id="count">0</span></h2><p id="queue-summary" class="hint">Your video transcripts will appear here.</p></div><a id="export" class="text-link" href="/api/export" hidden>Download all .txt</a></div>
+        <div id="connection-error" class="notice error" role="alert" hidden></div>
+        <div id="jobs"></div>
+        <div id="empty" class="empty-state"><div class="empty-mark" aria-hidden="true">Aa<span>_</span></div><h3>Your first transcript<br>starts with a link.</h3><p>Add a video link to get started.<br>Copy or download the transcript when it is ready.</p></div>
+        <p class="history-note" id="history-note" hidden>Showing the latest 200 items. History is kept between sessions.</p>
+      </section>
+    </div>
+  </main>
+  <div id="toast" class="toast" role="status" hidden></div>
+  <footer>reel_text <span>·</span> yt-dlp + Deepgram</footer>
+</body>
+</html>
